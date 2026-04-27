@@ -8,7 +8,7 @@
         body { font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif; background: #eceff1; color: #2c3e50; display: flex; flex-direction: column; align-items: center; margin: 0; padding: 20px; }
         h1 { margin-top: 0; font-size: 32px; font-weight: 800; color: #2c3e50; }
         .dashboard { display: flex; gap: 40px; background: white; padding: 30px; border-radius: 12px; box-shadow: 0 10px 30px rgba(0,0,0,0.1); width: 100%; max-width: 1100px; }
-        .tank-container { flex: 1; display: flex; flex-direction: column; align-items: center; }
+        .tank-container { flex: 1; display: flex; flex-direction: column; align-items: center; position: relative; }
         .data-container { flex: 1; display: flex; flex-direction: column; justify-content: center; gap: 30px; }
         canvas { background: #fff; }
         .status-banner { width: 100%; max-width: 1100px; text-align: center; padding: 18px; font-size: 26px; font-weight: 900; border-radius: 8px; margin-bottom: 25px; color: white; transition: background 0.3s ease; box-shadow: 0 4px 15px rgba(0,0,0,0.1); text-transform: uppercase; }
@@ -29,7 +29,7 @@
 
     <div class="dashboard">
         <div class="tank-container">
-            <canvas id="tankCanvas" width="400" height="500"></canvas>
+            <canvas id="tankCanvas" width="400" height="520"></canvas>
         </div>
         <div class="data-container">
             <div class="metric-box" style="border-left-color: #3498db;">
@@ -69,21 +69,18 @@
     </div>
 
     <script>
-        // 60-FPS JavaScript Physics Engine
         const canvas = document.getElementById('tankCanvas');
         const ctx = canvas.getContext('2d');
         
-        // Initialize Seed Particles
         let particles = [];
         for(let i=0; i<150; i++) {
             particles.push({
                 x: 120 + Math.random() * 160,
                 y: 150 + Math.random() * 200,
-                size: 4 + Math.random() * 8
+                size: 3 + Math.random() * 5
             });
         }
 
-        // Process Chemistry Logic
         function calcState() {
             const hf = parseInt(document.getElementById('hfSlider').value);
             const ca = parseInt(document.getElementById('caSlider').value);
@@ -117,7 +114,6 @@
                 state = "SUB-OPTIMAL"; msg = "SUB-OPTIMAL (Adjust Parameters to Meta-stable Zone)"; color = "#7f8c8d"; 
             }
 
-            // Update UI Dashboard
             document.getElementById('statusBanner').innerText = msg;
             document.getElementById('statusBanner').style.background = color;
             document.getElementById('effValue').innerText = eff.toFixed(1) + " ppm";
@@ -130,14 +126,15 @@
             return state;
         }
 
-        // Draw the Architectural Reactor
         function drawTank() {
             // Draw metastable zone highlight
             ctx.fillStyle = "rgba(241, 196, 15, 0.15)";
             ctx.fillRect(80, 180, 240, 140);
-            ctx.fillStyle = "rgba(243, 156, 18, 0.5)";
+            
+            // FIX: Moved text up to avoid overlapping with particles
+            ctx.fillStyle = "rgba(243, 156, 18, 0.8)";
             ctx.font = "bold 12px Arial";
-            ctx.fillText("METASTABLE REACTION ZONE", 115, 175);
+            ctx.fillText("METASTABLE REACTION ZONE", 110, 172);
 
             // Draw solid tank walls
             ctx.strokeStyle = '#2c3e50';
@@ -157,14 +154,14 @@
             ctx.fillText("→ Calcium In", 10, 320);
             ctx.beginPath(); ctx.moveTo(90, 315); ctx.lineTo(110, 315); ctx.strokeStyle='#8e44ad'; ctx.lineWidth=3; ctx.stroke();
             
-            ctx.fillStyle = '#3498db'; 
-            ctx.fillText("↑ HF Wastewater Inlet", 130, 485);
-            
+            // FIX: Spaced out the bottom labels to prevent overlapping
             ctx.fillStyle = '#2c3e50'; 
-            ctx.fillText("↓ Pellet Harvest", 150, 470);
+            ctx.fillText("↓ Pellet Harvest", 145, 475);
+
+            ctx.fillStyle = '#3498db'; 
+            ctx.fillText("↑ HF Wastewater Inlet", 125, 498);
         }
 
-        // Live Animation Loop
         function updatePhysics() {
             const state = calcState();
             ctx.clearRect(0, 0, canvas.width, canvas.height);
@@ -176,44 +173,44 @@
                 
                 if (state === "WASHOUT") {
                     ctx.fillStyle = "rgba(231, 76, 60, 0.8)";
-                    p.y -= 5; // Rapid upward force
-                    p.size = 5; // Cannot grow
-                    if (p.y < -10) p.y = 400; // Recirculate out top
+                    p.y -= 5; 
+                    p.size = 5; 
+                    if (p.y < -10) p.y = 400; 
                 } else if (state === "SLUDGE") {
                     ctx.fillStyle = "rgba(149, 165, 166, 0.8)";
-                    p.x += (Math.random() - 0.5) * 5; // Chaotic jitter
+                    p.x += (Math.random() - 0.5) * 5; 
                     p.y += (Math.random() - 0.5) * 5;
-                    p.size = 6; // Muddy, small clumps
+                    p.size = 6; 
                     if (p.x < 110) p.x = 110; if (p.x > 290) p.x = 290;
                     if (p.y < 150) p.y = 150; if (p.y > 380) p.y = 380;
                 } else if (state === "OPTIMAL") {
-                    ctx.fillStyle = "rgba(39, 174, 96, 0.85)";
-                    p.y += (Math.random() - 0.4) * 1.5; // Gentle fluidization
+                    // FIX: Made particles slightly more transparent so clusters look better
+                    ctx.fillStyle = "rgba(39, 174, 96, 0.75)";
+                    p.y += (Math.random() - 0.4) * 1.5; 
                     
-                    // Only grow if inside the metastable reaction zone
-                    if (p.y > 180 && p.y < 320) p.size += 0.08; 
+                    // FIX: Hard cap on maximum crystal size so they don't swallow the screen
+                    if (p.y > 180 && p.y < 320 && p.size < 14) {
+                        p.size += 0.05; 
+                    }
                     
-                    // Gravity overtakes fluid velocity when pellets get heavy
-                    if (p.size > 22) p.y += 3; 
+                    // Gravity overtakes fluid velocity when pellets hit target size
+                    if (p.size >= 12) p.y += 3; 
                     
-                    // Harvest and replace with tiny seed grain
-                    if (p.y > 430) { 
+                    if (p.y > 450) { 
                         p.y = 150 + Math.random()*100; 
-                        p.size = 4; 
+                        p.size = 3; 
                         p.x = 120 + Math.random() * 160;
                     } 
                 } else {
-                    ctx.fillStyle = "rgba(52, 152, 219, 0.5)"; // Neutral water
+                    ctx.fillStyle = "rgba(52, 152, 219, 0.5)"; 
                     p.y += (Math.random() - 0.5) * 1;
                 }
                 ctx.fill();
             });
 
-            // Call the next frame (locks to browser refresh rate, usually 60fps)
             requestAnimationFrame(updatePhysics);
         }
 
-        // Start the engine
         updatePhysics();
     </script>
 </body>
