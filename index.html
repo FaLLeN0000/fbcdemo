@@ -9,12 +9,16 @@
         h1 { margin-top: 0; font-size: 32px; font-weight: 800; color: #2c3e50; }
         .dashboard { display: flex; gap: 40px; background: white; padding: 30px; border-radius: 12px; box-shadow: 0 10px 30px rgba(0,0,0,0.1); width: 100%; max-width: 1100px; }
         .tank-container { flex: 1; display: flex; flex-direction: column; align-items: center; position: relative; }
-        .data-container { flex: 1; display: flex; flex-direction: column; justify-content: center; gap: 30px; }
-        canvas { background: #fff; }
+        .data-container { flex: 1; display: flex; flex-direction: column; justify-content: center; gap: 20px; }
+        canvas { background: #fff; border-radius: 8px; }
         .status-banner { width: 100%; max-width: 1100px; text-align: center; padding: 18px; font-size: 26px; font-weight: 900; border-radius: 8px; margin-bottom: 25px; color: white; transition: background 0.3s ease; box-shadow: 0 4px 15px rgba(0,0,0,0.1); text-transform: uppercase; }
-        .controls { display: flex; justify-content: space-between; width: 100%; max-width: 1100px; margin-top: 25px; background: white; padding: 25px; border-radius: 12px; box-shadow: 0 10px 30px rgba(0,0,0,0.1); }
+        .controls { display: flex; flex-direction: column; width: 100%; max-width: 1100px; margin-top: 25px; background: white; padding: 25px; border-radius: 12px; box-shadow: 0 10px 30px rgba(0,0,0,0.1); }
+        .sliders { display: flex; justify-content: space-between; width: 100%; }
+        .toggles { display: flex; justify-content: center; gap: 40px; margin-top: 20px; padding-top: 20px; border-top: 1px solid #eee; }
         .slider-group { display: flex; flex-direction: column; flex: 1; padding: 0 20px; }
         input[type=range] { width: 100%; margin-top: 12px; cursor: pointer; }
+        input[type=checkbox] { transform: scale(1.5); margin-right: 10px; cursor: pointer; }
+        label.toggle-label { font-size: 16px; font-weight: bold; display: flex; align-items: center; cursor: pointer; }
         .metric-box { background: #f8f9fa; padding: 20px; border-radius: 8px; border-left: 6px solid #2980b9; box-shadow: 0 2px 8px rgba(0,0,0,0.05); }
         .metric-title { font-size: 14px; color: #7f8c8d; font-weight: bold; text-transform: uppercase; letter-spacing: 1px; }
         .metric-value { font-size: 36px; font-weight: 900; margin-top: 8px; color: #2c3e50; }
@@ -29,7 +33,7 @@
 
     <div class="dashboard">
         <div class="tank-container">
-            <canvas id="tankCanvas" width="400" height="520"></canvas>
+            <canvas id="tankCanvas" width="450" height="520"></canvas>
         </div>
         <div class="data-container">
             <div class="metric-box" style="border-left-color: #3498db;">
@@ -54,17 +58,23 @@
     </div>
 
     <div class="controls">
-        <div class="slider-group">
-            <label><strong>Incoming HF Load:</strong> <span id="hfLabel">2000</span> ppm</label>
-            <input type="range" id="hfSlider" min="1000" max="3000" step="100" value="2000">
+        <div class="sliders">
+            <div class="slider-group">
+                <label><strong>Incoming HF Load:</strong> <span id="hfLabel">2000</span> ppm</label>
+                <input type="range" id="hfSlider" min="1000" max="3000" step="100" value="2000">
+            </div>
+            <div class="slider-group" style="border-left: 1px solid #eee; border-right: 1px solid #eee;">
+                <label><strong>Calcium Dosage:</strong> <span id="caLabel">50</span></label>
+                <input type="range" id="caSlider" min="0" max="100" value="50">
+            </div>
+            <div class="slider-group">
+                <label><strong>Upflow Velocity:</strong> <span id="velLabel">50</span></label>
+                <input type="range" id="velSlider" min="0" max="100" value="50">
+            </div>
         </div>
-        <div class="slider-group" style="border-left: 1px solid #eee; border-right: 1px solid #eee;">
-            <label><strong>Calcium Dosage:</strong> <span id="caLabel">50</span></label>
-            <input type="range" id="caSlider" min="0" max="100" value="50">
-        </div>
-        <div class="slider-group">
-            <label><strong>Upflow Velocity:</strong> <span id="velLabel">50</span></label>
-            <input type="range" id="velSlider" min="0" max="100" value="50">
+        <div class="toggles">
+            <label class="toggle-label"><input type="checkbox" id="flowToggle" checked> Show Flow Paths</label>
+            <label class="toggle-label"><input type="checkbox" id="zoneToggle" checked> Highlight Rx Zone</label>
         </div>
     </div>
 
@@ -72,12 +82,23 @@
         const canvas = document.getElementById('tankCanvas');
         const ctx = canvas.getContext('2d');
         
+        // 1. Initialize Seed Particles
         let particles = [];
-        for(let i=0; i<150; i++) {
+        for(let i=0; i<120; i++) {
             particles.push({
-                x: 120 + Math.random() * 160,
+                x: 150 + Math.random() * 150,
                 y: 150 + Math.random() * 200,
-                size: 3 + Math.random() * 5
+                size: 3 + Math.random() * 4
+            });
+        }
+
+        // 2. Initialize Flow Vectors (The Cyan Lines)
+        let flowLines = [];
+        for(let i=0; i<40; i++) {
+            flowLines.push({
+                x: 130 + Math.random() * 190,
+                y: 50 + Math.random() * 400,
+                length: 10 + Math.random() * 20
             });
         }
 
@@ -123,94 +144,142 @@
             document.getElementById('effBar').style.background = eff <= 15 ? "#3498db" : "#e74c3c";
             document.getElementById('yldBar').style.width = Math.min((yld / 120) * 100, 100) + "%";
 
-            return state;
+            return { state, vel };
         }
 
-        function drawTank() {
-            // Draw metastable zone highlight
-            ctx.fillStyle = "rgba(241, 196, 15, 0.15)";
-            ctx.fillRect(80, 180, 240, 140);
-            
-            // FIX: Moved text up to avoid overlapping with particles
-            ctx.fillStyle = "rgba(243, 156, 18, 0.8)";
-            ctx.font = "bold 12px Arial";
-            ctx.fillText("METASTABLE REACTION ZONE", 110, 172);
+        // Draw the background tank walls and zones
+        function drawTankBackground() {
+            const showZone = document.getElementById('zoneToggle').checked;
 
-            // Draw solid tank walls
+            if (showZone) {
+                ctx.fillStyle = "rgba(241, 196, 15, 0.15)";
+                ctx.fillRect(120, 180, 210, 140);
+            }
+
             ctx.strokeStyle = '#2c3e50';
             ctx.lineWidth = 8;
             ctx.lineCap = 'round';
             ctx.lineJoin = 'round';
             ctx.beginPath();
-            ctx.moveTo(100, 50); ctx.lineTo(100, 380); ctx.lineTo(180, 450);
-            ctx.moveTo(300, 50); ctx.lineTo(300, 380); ctx.lineTo(220, 450);
+            ctx.moveTo(130, 50); ctx.lineTo(130, 380); ctx.lineTo(200, 450);
+            ctx.moveTo(320, 50); ctx.lineTo(320, 380); ctx.lineTo(250, 450);
             ctx.stroke();
-
-            // Structural Arrows and Labels
-            ctx.fillStyle = '#3498db'; ctx.font = "bold 14px Arial"; 
-            ctx.fillText("⬆ Clean Effluent Out", 130, 30);
-            
-            ctx.fillStyle = '#8e44ad'; 
-            ctx.fillText("→ Calcium In", 10, 320);
-            ctx.beginPath(); ctx.moveTo(90, 315); ctx.lineTo(110, 315); ctx.strokeStyle='#8e44ad'; ctx.lineWidth=3; ctx.stroke();
-            
-            // FIX: Spaced out the bottom labels to prevent overlapping
-            ctx.fillStyle = '#2c3e50'; 
-            ctx.fillText("↓ Pellet Harvest", 145, 475);
-
-            ctx.fillStyle = '#3498db'; 
-            ctx.fillText("↑ HF Wastewater Inlet", 125, 498);
         }
 
-        function updatePhysics() {
-            const state = calcState();
-            ctx.clearRect(0, 0, canvas.width, canvas.height);
-            drawTank();
+        // Draw the text labels ON TOP of everything else so they never get overlapped
+        function drawTankLabels() {
+            const showZone = document.getElementById('zoneToggle').checked;
 
+            if (showZone) {
+                // Moved outside the tank to the left to prevent any overlap
+                ctx.fillStyle = "rgba(243, 156, 18, 1.0)";
+                ctx.font = "bold 13px Arial";
+                ctx.fillText("Metastable", 30, 240);
+                ctx.fillText("Reaction Zone", 30, 255);
+                ctx.beginPath(); ctx.moveTo(110, 245); ctx.lineTo(130, 245); ctx.strokeStyle='rgba(243, 156, 18, 1.0)'; ctx.lineWidth=2; ctx.stroke();
+            }
+
+            // Draw a slight white stroke around text to make it readable over particles
+            ctx.strokeStyle = 'white';
+            ctx.lineWidth = 4;
+
+            ctx.font = "bold 14px Arial"; 
+            
+            // Top Label
+            ctx.strokeText("⬆ Clean Effluent Out", 155, 30);
+            ctx.fillStyle = '#3498db'; 
+            ctx.fillText("⬆ Clean Effluent Out", 155, 30);
+            
+            // Side Injection
+            ctx.strokeText("Calcium In →", 30, 320);
+            ctx.fillStyle = '#8e44ad'; 
+            ctx.fillText("Calcium In →", 30, 320);
+            ctx.beginPath(); ctx.moveTo(105, 315); ctx.lineTo(130, 315); ctx.strokeStyle='#8e44ad'; ctx.lineWidth=3; ctx.stroke();
+            
+            // Bottom Labels (spaced out)
+            ctx.strokeText("↓ Pellet Harvest", 170, 475);
+            ctx.fillStyle = '#2c3e50'; 
+            ctx.fillText("↓ Pellet Harvest", 170, 475);
+
+            ctx.strokeText("↑ HF Wastewater Inlet", 150, 505);
+            ctx.fillStyle = '#3498db'; 
+            ctx.fillText("↑ HF Wastewater Inlet", 150, 505);
+        }
+
+        // The main 60fps loop
+        function updatePhysics() {
+            const { state, vel } = calcState();
+            const showFlow = document.getElementById('flowToggle').checked;
+
+            ctx.clearRect(0, 0, canvas.width, canvas.height);
+            
+            // 1. Draw Background
+            drawTankBackground();
+
+            // 2. Animate Flow Vectors (The Cyan Lines)
+            if (showFlow) {
+                ctx.strokeStyle = "rgba(0, 255, 255, 0.6)";
+                ctx.lineWidth = 2;
+                let flowSpeed = vel / 10; 
+                flowLines.forEach(f => {
+                    f.y -= flowSpeed;
+                    if (f.y < 50) f.y = 450; // Wrap around to bottom
+                    
+                    ctx.beginPath();
+                    ctx.moveTo(f.x, f.y);
+                    ctx.lineTo(f.x, f.y + f.length);
+                    ctx.stroke();
+                });
+            }
+
+            // 3. Animate Particles
             particles.forEach(p => {
                 ctx.beginPath();
                 ctx.arc(p.x, p.y, p.size, 0, Math.PI * 2);
                 
                 if (state === "WASHOUT") {
-                    ctx.fillStyle = "rgba(231, 76, 60, 0.8)";
-                    p.y -= 5; 
-                    p.size = 5; 
-                    if (p.y < -10) p.y = 400; 
+                    ctx.fillStyle = "rgba(231, 76, 60, 0.8)"; // Red
+                    p.y -= 6; 
+                    p.size = 4; // Reset size
+                    if (p.y < -10) { p.y = 450; p.x = 150 + Math.random() * 150; }
                 } else if (state === "SLUDGE") {
-                    ctx.fillStyle = "rgba(149, 165, 166, 0.8)";
+                    ctx.fillStyle = "rgba(149, 165, 166, 0.8)"; // Muddy Gray
                     p.x += (Math.random() - 0.5) * 5; 
                     p.y += (Math.random() - 0.5) * 5;
-                    p.size = 6; 
-                    if (p.x < 110) p.x = 110; if (p.x > 290) p.x = 290;
+                    p.size = 5; 
+                    if (p.x < 140) p.x = 140; if (p.x > 310) p.x = 310;
                     if (p.y < 150) p.y = 150; if (p.y > 380) p.y = 380;
                 } else if (state === "OPTIMAL") {
-                    // FIX: Made particles slightly more transparent so clusters look better
-                    ctx.fillStyle = "rgba(39, 174, 96, 0.75)";
+                    ctx.fillStyle = "rgba(39, 174, 96, 0.85)"; // Green crystals
                     p.y += (Math.random() - 0.4) * 1.5; 
                     
-                    // FIX: Hard cap on maximum crystal size so they don't swallow the screen
-                    if (p.y > 180 && p.y < 320 && p.size < 14) {
+                    // Only grow in the zone, and STRICT maximum size limit (radius 10)
+                    if (p.y > 180 && p.y < 320 && p.size < 10) {
                         p.size += 0.05; 
                     }
                     
-                    // Gravity overtakes fluid velocity when pellets hit target size
-                    if (p.size >= 12) p.y += 3; 
+                    if (p.size >= 9.5) p.y += 3.5; // Heavy crystals drop fast
                     
-                    if (p.y > 450) { 
+                    // Harvest at bottom
+                    if (p.y > 440) { 
                         p.y = 150 + Math.random()*100; 
                         p.size = 3; 
-                        p.x = 120 + Math.random() * 160;
+                        p.x = 150 + Math.random() * 150;
                     } 
                 } else {
-                    ctx.fillStyle = "rgba(52, 152, 219, 0.5)"; 
+                    ctx.fillStyle = "rgba(52, 152, 219, 0.5)"; // Neutral water
                     p.y += (Math.random() - 0.5) * 1;
                 }
                 ctx.fill();
             });
 
+            // 4. Draw Labels on top of everything
+            drawTankLabels();
+
             requestAnimationFrame(updatePhysics);
         }
 
+        // Start engine
         updatePhysics();
     </script>
 </body>
